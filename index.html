@@ -50,6 +50,12 @@ textarea{min-height:70px}
 .center{text-align:center;padding:60px 20px;color:var(--mu)}
 .foot{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--bd);padding:10px 12px;display:flex;gap:10px;align-items:center;z-index:5}
 .foot .btn{flex:1}
+.res{max-height:300px;overflow-y:auto;border:1px solid var(--bd);border-top:0;border-radius:0 0 8px 8px}
+.res:empty{display:none}
+.hit{padding:10px 12px;border-top:1px solid #eef0f3;background:#fff}
+.hit:active{background:#e8f9ef}
+.hit.new{color:#047a35;font-weight:600}
+.pick{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--g);border-radius:8px;background:#f2fbf5}
 </style>
 </head>
 <body>
@@ -92,7 +98,6 @@ textarea{min-height:70px}
     <div class="card">
       <h3>要叫的東西</h3>
       <div class="mu">打字搜尋品名或品號；清單沒有的，直接打名稱並拍照</div>
-      <datalist id="prItemList"></datalist>
       <div id="prLines"></div>
       <button class="btn o sm" style="margin-top:12px" onclick="prAdd()">＋ 再加一項</button>
     </div>
@@ -353,7 +358,6 @@ async function prOpen(){
     const r = await api('prInit');
     if (!r.ok) { toast(r.msg); return; }
     PRITEMS = r.items;
-    $('prItemList').innerHTML = PRITEMS.map(i=>'<option value="'+esc(i.name+'｜'+i.no)+'">').join('');
   }
 }
 function prReset(){
@@ -362,24 +366,41 @@ function prReset(){
   $('prUrgent').checked = false;
   renderPrWh(); prRender(); prRenderPhotos();
 }
-function prNew(){ return {text:'', qty:'', needDate:'', memo:''}; }
+function prNew(){ return {sel:'', text:'', qty:'', needDate:'', memo:''}; }
 function renderPrWh(){ $('prWhBox').classList.toggle('hide', $('prCenter').value!=='C1'); }
-function prMatch(text){ const no = String(text||'').split('｜').pop().trim(); return (PRITEMS||[]).find(i=>i.no===no) || null; }
+function prItem(no){ return (PRITEMS||[]).find(i=>i.no===no) || null; }
 function prRender(){
   $('prLines').innerHTML = PR.lines.map((l,i)=>{
-    const it = prMatch(l.text);
-    return '<div class="item">'+
-      '<label class="f">品項'+(PR.lines.length>1?'（第 '+(i+1)+' 項）':'')+'</label>'+
-      '<input list="prItemList" value="'+esc(l.text)+'" oninput="PR.lines['+i+'].text=this.value" onchange="prRender()" placeholder="例：鋸片、紙箱、螺絲">'+
-      '<div class="mu" style="margin-top:4px">'+(it ? '✔ '+esc(it.no)+'　單位：'+esc(it.unit) : (l.text ? '清單沒有這項，會以新品項送出（建議拍照）' : ''))+'</div>'+
+    const it = prItem(l.sel);
+    const head = '<label class="f">品項'+(PR.lines.length>1?'（第 '+(i+1)+' 項）':'')+'</label>';
+    const pick = it
+      ? '<div class="pick"><div><b>'+esc(it.name)+'</b><div class="mu">'+esc(it.no)+'　單位：'+esc(it.unit)+'</div></div><button class="btn o sm" onclick="prClear('+i+')">更換</button></div>'
+      : (l.sel === '__new'
+        ? '<div class="pick"><div><b>'+esc(l.text)+'</b><div class="mu">新品項（清單沒有，建議拍照）</div></div><button class="btn o sm" onclick="prClear('+i+')">更換</button></div>'
+        : '<input id="prQ'+i+'" value="'+esc(l.text)+'" oninput="prSearch('+i+',this.value)" placeholder="打字搜尋，例：收縮膜、鋸片、螺絲" autocomplete="off"><div class="res" id="prR'+i+'"></div>');
+    return '<div class="item">'+head+pick+
       '<div class="row"><div><label class="f">數量'+(it&&it.unit?'（'+esc(it.unit)+'）':'')+'</label><input inputmode="decimal" value="'+esc(l.qty)+'" oninput="PR.lines['+i+'].qty=this.value"></div>'+
       '<div><label class="f">需要日</label><input type="date" value="'+esc(l.needDate)+'" oninput="PR.lines['+i+'].needDate=this.value"></div></div>'+
       '<label class="f">用途／說明</label><input value="'+esc(l.memo)+'" oninput="PR.lines['+i+'].memo=this.value">'+
       (PR.lines.length>1?'<button class="btn o sm" style="margin-top:8px" onclick="PR.lines.splice('+i+',1);prRender()">刪除這項</button>':'')+
     '</div>';
   }).join('');
-  $('prCount').textContent = PR.lines.filter(l=>l.text).length + ' 項';
+  PR.lines.forEach((l,i)=>{ if(!l.sel && l.text) prSearch(i,l.text); });
+  $('prCount').textContent = PR.lines.filter(l=>l.sel).length + ' 項';
 }
+function prSearch(i,val){
+  PR.lines[i].text = val;
+  const box = $('prR'+i); if (!box) return;
+  const kw = String(val||'').trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (!kw.length) { box.innerHTML=''; return; }
+  const hits = (PRITEMS||[]).filter(it=>{ const t=(it.name+' '+it.no).toLowerCase(); return kw.every(k=>t.indexOf(k)>=0); });
+  box.innerHTML = hits.slice(0,30).map(it=>'<div class="hit" onclick="prPick('+i+',\''+esc(it.no)+'\')"><div>'+esc(it.name)+'</div><div class="mu">'+esc(it.no)+'　'+esc(it.unit)+'</div></div>').join('')+
+    (hits.length>30?'<div class="mu" style="padding:8px">還有 '+(hits.length-30)+' 筆，請多打幾個字縮小範圍</div>':'')+
+    '<div class="hit new" onclick="prPickNew('+i+')">＋ 清單沒有，用「'+esc(val.trim())+'」當新品項</div>';
+}
+function prPick(i,no){ PR.lines[i].sel = no; PR.lines[i].text = ''; prRender(); }
+function prPickNew(i){ if(!String(PR.lines[i].text).trim()) return; PR.lines[i].sel = '__new'; prRender(); }
+function prClear(i){ PR.lines[i].sel = ''; prRender(); const q=$('prQ'+i); if(q) q.focus(); }
 function prAdd(){ PR.lines.push(prNew()); prRender(); }
 function prPhotos(inp){
   [...inp.files].forEach(f=>{
@@ -396,8 +417,9 @@ function prPhotos(inp){
 }
 function prRenderPhotos(){ $('prPhotoBox').innerHTML = PR.photos.map((p,i)=>'<div><img src="'+p+'"><b onclick="PR.photos.splice('+i+',1);prRenderPhotos()">✕</b></div>').join(''); }
 async function prSubmit(){
-  const lines = PR.lines.filter(l=>String(l.text).trim()).map(l=>{
-    const it = prMatch(l.text);
+  if (PR.lines.some(l=>!l.sel && String(l.text).trim())) { toast('有品項還沒選定，請點清單裡的品項或「新品項」'); return; }
+  const lines = PR.lines.filter(l=>l.sel).map(l=>{
+    const it = prItem(l.sel);
     return it ? {item: it.no, qty: Number(l.qty)||0, needDate: l.needDate, memo: l.memo}
               : {name: String(l.text).trim(), qty: Number(l.qty)||0, needDate: l.needDate, memo: l.memo};
   });

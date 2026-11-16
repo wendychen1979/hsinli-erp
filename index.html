@@ -73,12 +73,36 @@ textarea{min-height:70px}
   <header>
     <div class="who" id="who"></div>
     <div class="tabs">
+      <button id="tPR" onclick="go('pr')">叫貨</button>
       <button id="tForm" onclick="go('form')">費用申請</button>
       <button id="tMine" onclick="go('mine')">我的申請</button>
       <button id="tAppr" class="hide" onclick="go('appr')">待我簽核<span id="apprN" class="badge hide"></span></button>
       <button id="tPetty" class="hide" onclick="go('petty')">零用金</button>
     </div>
   </header>
+
+  <!-- 叫貨 -->
+  <main id="pPR" class="hide">
+    <div class="card">
+      <h3>需求單位</h3>
+      <select id="prCenter" onchange="renderPrWh()"></select>
+      <div id="prWhBox"><label class="f">收貨地點</label>
+        <select id="prWh"><option value="GM">工明廠</option><option value="HW">海環廠</option></select></div>
+    </div>
+    <div class="card">
+      <h3>要叫的東西</h3>
+      <div class="mu">打字搜尋品名或品號；清單沒有的，直接打名稱並拍照</div>
+      <datalist id="prItemList"></datalist>
+      <div id="prLines"></div>
+      <button class="btn o sm" style="margin-top:12px" onclick="prAdd()">＋ 再加一項</button>
+    </div>
+    <div class="card">
+      <h3>照片（選填）</h3>
+      <input type="file" accept="image/*" multiple onchange="prPhotos(this)">
+      <div class="photos" id="prPhotoBox"></div>
+      <label style="display:flex;gap:8px;align-items:center;margin-top:12px"><input type="checkbox" id="prUrgent" style="width:auto"> 急件</label>
+    </div>
+  </main>
 
   <!-- 費用申請 -->
   <main id="pForm">
@@ -113,6 +137,10 @@ textarea{min-height:70px}
   <main id="pAppr" class="hide"><div id="apprList"></div></main>
   <main id="pPetty" class="hide"><div id="pettyBox"></div></main>
 
+  <div class="foot hide" id="prFoot">
+    <div><div class="mu">品項</div><div class="tot" id="prCount">0 項</div></div>
+    <button class="btn" id="btnPR" onclick="prSubmit()">送出叫貨</button>
+  </div>
   <div class="foot" id="formFoot">
     <div><div class="mu">合計</div><div class="tot" id="sum">$0</div></div>
     <button class="btn" id="btnSubmit" onclick="submitForm()">送出</button>
@@ -164,7 +192,7 @@ async function loadInit(){
   setBadge(r.pendingCount);
   $('vMain').classList.remove('hide');
   resetForm();
-  go(VIEW === 'approve' && r.isApprover ? 'appr' : VIEW === 'mine' ? 'mine' : 'form');
+  go(VIEW === 'approve' && r.isApprover ? 'appr' : VIEW === 'mine' ? 'mine' : VIEW === 'pr' ? 'pr' : 'form');
 }
 function fatal(m){ $('vLoading').classList.add('hide'); const f=$('vFatal'); f.classList.remove('hide');
   f.innerHTML = '無法開啟：' + esc(m) + '<br><br><button class="btn o" onclick="location.reload()">重新整理</button>'; }
@@ -182,11 +210,13 @@ async function doBind(){
 
 /* ===== 分頁 ===== */
 function go(v){
-  ['form','mine','appr','petty'].forEach(k=>{
-    const P = {form:'pForm',mine:'pMine',appr:'pAppr',petty:'pPetty'}[k], T = {form:'tForm',mine:'tMine',appr:'tAppr',petty:'tPetty'}[k];
+  ['pr','form','mine','appr','petty'].forEach(k=>{
+    const P = {pr:'pPR',form:'pForm',mine:'pMine',appr:'pAppr',petty:'pPetty'}[k], T = {pr:'tPR',form:'tForm',mine:'tMine',appr:'tAppr',petty:'tPetty'}[k];
     $(P).classList.toggle('hide', k!==v); $(T).classList.toggle('on', k===v);
   });
   $('formFoot').classList.toggle('hide', v!=='form');
+  $('prFoot').classList.toggle('hide', v!=='pr');
+  if (v==='pr') prOpen();
   if (v==='mine') loadMine();
   if (v==='appr') loadAppr();
   if (v==='petty') renderPetty();
@@ -296,17 +326,91 @@ async function refreshInit(){ const r = await api('init'); if (r.ok) { INIT = r;
 
 /* ===== 我的申請 ===== */
 function stCls(s){ s=String(s||''); return /核准|通過|已付|已撥/.test(s)?'ok':/退回/.test(s)?'no':/待/.test(s)?'wait':''; }
+function prStCls(s){ s=String(s||''); return /到貨|核准|轉採購/.test(s)?'ok':/退回|取消/.test(s)?'no':'wait'; }
 async function loadMine(){
   $('mineList').innerHTML = '<div class="center">載入中…</div>';
-  const r = await api('mine');
+  const [p, r] = await Promise.all([api('prMine'), api('mine')]);
   if(!r.ok){ $('mineList').innerHTML = '<div class="center">'+esc(r.msg)+'</div>'; return; }
-  $('mineList').innerHTML = r.list.length ? r.list.map(g=>'<div class="card">'+
+  const prHtml = (p.ok && p.list.length) ? '<h3 style="margin:4px 4px 10px">叫貨</h3>' + p.list.map(g=>'<div class="card">'+
+    '<div class="ln"><b>'+esc(g.no)+'</b><span class="mu">'+esc(g.date)+'</span></div>'+
+    g.items.map(i=>'<div class="ln"><span>'+esc(i.name)+'　'+i.qty+esc(i.unit)+(i.recv?'（已到 '+i.recv+'）':'')+(i.reject?'<br><span class="err">'+esc(i.reject)+'</span>':'')+'</span>'+
+      '<span class="st '+prStCls(i.status)+'">'+esc(i.status)+'</span></div>').join('')+
+  '</div>').join('') + '<h3 style="margin:14px 4px 10px">費用申請</h3>' : '';
+  $('mineList').innerHTML = prHtml + (r.list.length ? r.list.map(g=>'<div class="card">'+
     '<div class="ln"><b>'+esc(g.no)+'</b><span class="st '+stCls(g.status)+'">'+esc(g.status)+'</span></div>'+
     '<div class="mu">'+esc(g.date)+'　'+esc(g.pay||'')+'　'+esc(g.doc||'')+(g.paper==='待繳'?'　<b style="color:#9a5b00">正本待繳</b>':'')+'</div>'+
     g.items.map(i=>'<div class="ln"><span>'+esc(i.item)+(i.memo?'｜'+esc(i.memo):'')+'</span><span>'+money(i.amt)+'</span></div>').join('')+
     '<div class="ln"><b>合計</b><b>'+money(g.total)+'</b></div>'+
     (g.rejectWhy?'<div class="err">退回原因：'+esc(g.rejectWhy)+'</div>':'')+
-  '</div>').join('') : '<div class="center">近 60 天沒有申請</div>';
+  '</div>').join('') : '<div class="center">近 60 天沒有費用申請</div>');
+}
+
+/* ===== 叫貨 ===== */
+let PRITEMS = null, PR = null;
+async function prOpen(){
+  if (!PR) prReset();
+  if (!PRITEMS) {
+    const r = await api('prInit');
+    if (!r.ok) { toast(r.msg); return; }
+    PRITEMS = r.items;
+    $('prItemList').innerHTML = PRITEMS.map(i=>'<option value="'+esc(i.name+'｜'+i.no)+'">').join('');
+  }
+}
+function prReset(){
+  PR = {lines:[prNew()], photos:[]};
+  $('prCenter').innerHTML = INIT.centers.map(c=>'<option '+(c.id===INIT.me.center?'selected':'')+' value="'+esc(c.id)+'">'+esc(c.id+' '+c.name)+'</option>').join('');
+  $('prUrgent').checked = false;
+  renderPrWh(); prRender(); prRenderPhotos();
+}
+function prNew(){ return {text:'', qty:'', needDate:'', memo:''}; }
+function renderPrWh(){ $('prWhBox').classList.toggle('hide', $('prCenter').value!=='C1'); }
+function prMatch(text){ const no = String(text||'').split('｜').pop().trim(); return (PRITEMS||[]).find(i=>i.no===no) || null; }
+function prRender(){
+  $('prLines').innerHTML = PR.lines.map((l,i)=>{
+    const it = prMatch(l.text);
+    return '<div class="item">'+
+      '<label class="f">品項'+(PR.lines.length>1?'（第 '+(i+1)+' 項）':'')+'</label>'+
+      '<input list="prItemList" value="'+esc(l.text)+'" oninput="PR.lines['+i+'].text=this.value" onchange="prRender()" placeholder="例：鋸片、紙箱、螺絲">'+
+      '<div class="mu" style="margin-top:4px">'+(it ? '✔ '+esc(it.no)+'　單位：'+esc(it.unit) : (l.text ? '清單沒有這項，會以新品項送出（建議拍照）' : ''))+'</div>'+
+      '<div class="row"><div><label class="f">數量'+(it&&it.unit?'（'+esc(it.unit)+'）':'')+'</label><input inputmode="decimal" value="'+esc(l.qty)+'" oninput="PR.lines['+i+'].qty=this.value"></div>'+
+      '<div><label class="f">需要日</label><input type="date" value="'+esc(l.needDate)+'" oninput="PR.lines['+i+'].needDate=this.value"></div></div>'+
+      '<label class="f">用途／說明</label><input value="'+esc(l.memo)+'" oninput="PR.lines['+i+'].memo=this.value">'+
+      (PR.lines.length>1?'<button class="btn o sm" style="margin-top:8px" onclick="PR.lines.splice('+i+',1);prRender()">刪除這項</button>':'')+
+    '</div>';
+  }).join('');
+  $('prCount').textContent = PR.lines.filter(l=>l.text).length + ' 項';
+}
+function prAdd(){ PR.lines.push(prNew()); prRender(); }
+function prPhotos(inp){
+  [...inp.files].forEach(f=>{
+    const img = new Image(), rd = new FileReader();
+    rd.onload = () => { img.onload = () => {
+      const k = Math.min(1, 1280 / Math.max(img.width, img.height)), c = document.createElement('canvas');
+      c.width = Math.round(img.width*k); c.height = Math.round(img.height*k);
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+      PR.photos.push(c.toDataURL('image/jpeg',0.7)); prRenderPhotos();
+    }; img.src = rd.result; };
+    rd.readAsDataURL(f);
+  });
+  inp.value='';
+}
+function prRenderPhotos(){ $('prPhotoBox').innerHTML = PR.photos.map((p,i)=>'<div><img src="'+p+'"><b onclick="PR.photos.splice('+i+',1);prRenderPhotos()">✕</b></div>').join(''); }
+async function prSubmit(){
+  const lines = PR.lines.filter(l=>String(l.text).trim()).map(l=>{
+    const it = prMatch(l.text);
+    return it ? {item: it.no, qty: Number(l.qty)||0, needDate: l.needDate, memo: l.memo}
+              : {name: String(l.text).trim(), qty: Number(l.qty)||0, needDate: l.needDate, memo: l.memo};
+  });
+  if (!lines.length) { toast('請至少填一項'); return; }
+  if (lines.some(l=>!(l.qty>0))) { toast('每一項都要填數量'); return; }
+  const b = $('btnPR'); b.disabled = true; b.textContent = '送出中…';
+  try{
+    const r = await api('prSubmit', {center: $('prCenter').value, wh: $('prWh').value, lines, photos: PR.photos, urgent: $('prUrgent').checked});
+    if(!r.ok){ toast(r.msg); return; }
+    alert('已送出叫貨 ' + r.no + '（' + r.count + ' 項）\n可在「我的申請」查看進度。');
+    PR = null; prReset(); go('mine');
+  }catch(e){ toast('送出失敗：' + (e.message||e)); }
+  finally{ b.disabled = false; b.textContent = '送出叫貨'; }
 }
 
 /* ===== 待我簽核 ===== */

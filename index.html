@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>鑫鉝 ERP</title>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js" charset="utf-8"></script>
+<style>
+:root{--g:#06c755;--gd:#05a948;--bd:#e3e6ea;--tx:#1f2328;--mu:#6b7280;--bg:#f5f6f8;--rd:#e5484d;--am:#d97706}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;background:var(--bg);color:var(--tx);font-size:15px}
+.hide{display:none!important}
+header{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--bd)}
+.who{padding:10px 14px 4px;font-size:13px;color:var(--mu)}
+.tabs{display:flex;overflow-x:auto}
+.tabs button{flex:1;min-width:76px;border:0;background:none;padding:10px 6px;font-size:15px;color:var(--mu);border-bottom:3px solid transparent;position:relative}
+.tabs button.on{color:var(--tx);font-weight:600;border-bottom-color:var(--g)}
+.badge{display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;border-radius:9px;background:var(--rd);color:#fff;font-size:12px;line-height:18px}
+main{padding:12px 12px 90px}
+.card{background:#fff;border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:12px}
+.card h3{margin:0 0 8px;font-size:16px}
+label.f{display:block;margin:12px 0 6px;font-size:13px;color:var(--mu)}
+input,select,textarea{width:100%;padding:10px;border:1px solid var(--bd);border-radius:8px;font-size:16px;background:#fff;font-family:inherit}
+textarea{min-height:70px}
+.row{display:flex;gap:8px}.row>*{flex:1}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid var(--bd);background:#fff;border-radius:18px;padding:7px 12px;font-size:14px}
+.chip.on{border-color:var(--g);background:#e8f9ef;color:#047a35;font-weight:600}
+.btn{display:block;width:100%;border:0;border-radius:10px;padding:13px;font-size:16px;font-weight:600;background:var(--g);color:#fff}
+.btn:disabled{opacity:.5}
+.btn.o{background:#fff;color:var(--tx);border:1px solid var(--bd)}
+.btn.r{background:var(--rd)}
+.btn.sm{display:inline-block;width:auto;padding:8px 14px;font-size:14px}
+.err{color:var(--rd);font-size:13px;margin-top:6px}
+.mu{color:var(--mu);font-size:13px}
+.tot{font-size:20px;font-weight:700}
+.st{display:inline-block;padding:2px 8px;border-radius:6px;font-size:12px;background:#eef0f3}
+.st.ok{background:#e8f9ef;color:#047a35}.st.no{background:#fde8e8;color:#b42318}.st.wait{background:#fff4e0;color:#9a5b00}
+.item{border-top:1px dashed var(--bd);padding-top:10px;margin-top:10px}
+.item:first-of-type{border-top:0;margin-top:0;padding-top:0}
+.ln{display:flex;justify-content:space-between;gap:8px;padding:4px 0;font-size:14px}
+.ln span:last-child{white-space:nowrap}
+.photos{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.photos div{position:relative;width:72px;height:72px}
+.photos img{width:72px;height:72px;object-fit:cover;border-radius:8px}
+.photos b{position:absolute;top:-6px;right:-6px;background:#000a;color:#fff;border-radius:50%;width:20px;height:20px;text-align:center;line-height:20px;font-size:12px}
+.tag{display:inline-block;font-size:12px;padding:1px 7px;border-radius:5px;background:#eef2ff;color:#3730a3;margin-right:6px}
+.tag.ur{background:#fde8e8;color:#b42318}
+#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;display:none;z-index:20;max-width:90%}
+.center{text-align:center;padding:60px 20px;color:var(--mu)}
+.foot{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--bd);padding:10px 12px;display:flex;gap:10px;align-items:center;z-index:5}
+.foot .btn{flex:1}
+</style>
+</head>
+<body>
+<div id="vLoading" class="center">載入中…</div>
+<div id="vFatal" class="center hide"></div>
+
+<div id="vBind" class="hide">
+  <main>
+    <div class="card">
+      <h3>第一次使用：綁定員工身分</h3>
+      <div class="mu">請輸入員工編號與人資給你的 4 碼驗證碼，只需要綁定一次。</div>
+      <label class="f">員工編號</label><input id="bEmp" placeholder="例 E12" autocapitalize="characters">
+      <label class="f">驗證碼</label><input id="bCode" inputmode="numeric" maxlength="6">
+      <div id="eBind" class="err hide"></div>
+      <button class="btn" style="margin-top:16px" onclick="doBind()">綁定</button>
+    </div>
+  </main>
+</div>
+
+<div id="vMain" class="hide">
+  <header>
+    <div class="who" id="who"></div>
+    <div class="tabs">
+      <button id="tForm" onclick="go('form')">費用申請</button>
+      <button id="tMine" onclick="go('mine')">我的申請</button>
+      <button id="tAppr" class="hide" onclick="go('appr')">待我簽核<span id="apprN" class="badge hide"></span></button>
+      <button id="tPetty" class="hide" onclick="go('petty')">零用金</button>
+    </div>
+  </header>
+
+  <!-- 費用申請 -->
+  <main id="pForm">
+    <div class="card">
+      <h3>付款方式</h3>
+      <div class="chips" id="payChips"></div>
+      <div id="payExtra"></div>
+    </div>
+    <div class="card">
+      <h3>費用明細</h3>
+      <div id="items"></div>
+      <button class="btn o sm" style="margin-top:12px" onclick="addItem()">＋ 再加一項</button>
+    </div>
+    <div class="card">
+      <h3>憑證</h3>
+      <div class="chips" id="docChips"></div>
+      <div id="docExtra"></div>
+      <label class="f">消費日期</label><input type="date" id="spendDate">
+      <div id="photoBox">
+        <label class="f">照片（收據或發票）</label>
+        <input type="file" accept="image/*" multiple id="photoIn" onchange="addPhotos(this)">
+        <div class="photos" id="photos"></div>
+      </div>
+    </div>
+    <div class="card">
+      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="urgent" style="width:auto" onchange="$('urgentBox').classList.toggle('hide',!this.checked)"> 急件（非週三付款）</label>
+      <div id="urgentBox" class="hide"><label class="f">急件原因</label><input id="urgentWhy"></div>
+    </div>
+  </main>
+
+  <main id="pMine" class="hide"><div id="mineList"></div></main>
+  <main id="pAppr" class="hide"><div id="apprList"></div></main>
+  <main id="pPetty" class="hide"><div id="pettyBox"></div></main>
+
+  <div class="foot" id="formFoot">
+    <div><div class="mu">合計</div><div class="tot" id="sum">$0</div></div>
+    <button class="btn" id="btnSubmit" onclick="submitForm()">送出</button>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+const CONFIG = {
+  LIFF_ID: '2010345991-LOgTnBvD',
+  GAS_URL: 'https://script.google.com/macros/s/AKfycbwE_JCeDRDq9aaNR5nh_v-qCanMV_0E5oT8PX6qalYFq5_Bo2h1D8SLVwvk9pIPe7tOUA/exec',
+};
+const QS = new URLSearchParams(location.search);
+const VIEW = QS.get('view') || '';
+let ID_TOKEN = '', INIT = null, S = null, PENDING = [];
+const PAY = [{k:'adv',t:'自己先墊（員工代墊）'},{k:'co',t:'請公司付給廠商'},{k:'petty',t:'零用金'},{k:'loan',t:'沖借支'}];
+const DOC = [{k:'inv3',t:'發票有統編'},{k:'inv2',t:'發票無統編'},{k:'rcpt',t:'收據'},{k:'none',t:'無憑證'}];
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money = n => '$' + Math.round(Number(n) || 0).toLocaleString();
+function toast(t){const e=$('toast');e.textContent=t;e.style.display='block';clearTimeout(e._t);e._t=setTimeout(()=>e.style.display='none',2800)}
+function showErr(id,on,msg){const e=$(id);e.classList.toggle('hide',!on);if(msg)e.textContent=msg}
+
+async function api(action, data){
+  const r = await fetch(CONFIG.GAS_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body: JSON.stringify(Object.assign({action, idToken: ID_TOKEN}, data || {}))});
+  return r.json();
+}
+
+/* ===== 啟動 ===== */
+async function boot(){
+  try{
+    await liff.init({liffId: CONFIG.LIFF_ID});
+    if (!liff.isLoggedIn()) { liff.login({redirectUri: location.href}); return; }
+    ID_TOKEN = liff.getIDToken();
+    await loadInit();
+  }catch(e){ fatal(e.message || e); }
+}
+async function loadInit(){
+  const r = await api('init');
+  $('vLoading').classList.add('hide');
+  if (r.needBind) { $('vBind').classList.remove('hide'); return; }
+  if (!r.ok) throw new Error(r.msg);
+  INIT = r;
+  $('who').textContent = r.me.name + '（' + r.me.id + '）　' + r.me.center + ' ' + r.me.centerName;
+  $('tAppr').classList.toggle('hide', !r.isApprover);
+  $('tPetty').classList.toggle('hide', !(r.petty && r.petty.length));
+  setBadge(r.pendingCount);
+  $('vMain').classList.remove('hide');
+  resetForm();
+  go(VIEW === 'approve' && r.isApprover ? 'appr' : VIEW === 'mine' ? 'mine' : 'form');
+}
+function fatal(m){ $('vLoading').classList.add('hide'); const f=$('vFatal'); f.classList.remove('hide');
+  f.innerHTML = '無法開啟：' + esc(m) + '<br><br><button class="btn o" onclick="location.reload()">重新整理</button>'; }
+function setBadge(n){ const b=$('apprN'); b.textContent=n; b.classList.toggle('hide',!n); }
+
+async function doBind(){
+  const empId=$('bEmp').value.trim().toUpperCase(), code=$('bCode').value.trim();
+  if(!empId||!code){showErr('eBind',true,'請填員工編號與驗證碼');return}
+  const r = await api('bind',{empId,code});
+  if(!r.ok){showErr('eBind',true,r.msg);return}
+  $('vBind').classList.add('hide'); $('vLoading').classList.remove('hide');
+  toast('綁定完成：'+r.name);
+  await loadInit();
+}
+
+/* ===== 分頁 ===== */
+function go(v){
+  ['form','mine','appr','petty'].forEach(k=>{
+    const P = {form:'pForm',mine:'pMine',appr:'pAppr',petty:'pPetty'}[k], T = {form:'tForm',mine:'tMine',appr:'tAppr',petty:'tPetty'}[k];
+    $(P).classList.toggle('hide', k!==v); $(T).classList.toggle('on', k===v);
+  });
+  $('formFoot').classList.toggle('hide', v!=='form');
+  if (v==='mine') loadMine();
+  if (v==='appr') loadAppr();
+  if (v==='petty') renderPetty();
+  window.scrollTo(0,0);
+}
+
+/* ===== 費用申請 ===== */
+function newItem(){ return {item:'', amt:'', memo:'', center: INIT.me.center}; }
+function resetForm(){
+  S = {pay:'adv', doc:'inv3', photos:[], items:[newItem()], vendor:'', tmp:{}, loan:'', petty:(INIT.petty[0]||{}).id||'', lendNo:'',
+       inv:{no:'', tax:'', name:'', buyer: INIT.me.co || 'HL', ep:false}};
+  $('spendDate').value = new Date(Date.now()+8*3600e3).toISOString().slice(0,10);
+  $('urgent').checked=false; $('urgentWhy').value=''; $('urgentBox').classList.add('hide');
+  renderPay(); renderDoc(); renderItems(); renderPhotos();
+}
+function renderPay(){
+  const opts = PAY.filter(p => p.k!=='petty' || (INIT.petty && INIT.petty.length));
+  $('payChips').innerHTML = opts.map(p=>'<button class="chip '+(S.pay===p.k?'on':'')+'" onclick="S.pay=\''+p.k+'\';renderPay()">'+p.t+'</button>').join('');
+  let h = '';
+  if (S.pay==='co') {
+    h += '<label class="f">付款對象（廠商）</label><input id="vendor" list="vendorList" value="'+esc(S.vendor)+'" oninput="S.vendor=this.value" placeholder="輸入廠商代號或名稱">';
+    h += '<datalist id="vendorList">'+INIT.vendors.map(v=>'<option value="'+esc(v)+'">').join('')+'</datalist>';
+    h += '<div class="mu" style="margin-top:6px">清單裡沒有的臨時廠商，請直接打名稱並填下面資料</div>';
+    h += '<div class="row"><div><label class="f">統編</label><input value="'+esc(S.tmp.tax||'')+'" oninput="S.tmp.tax=this.value"></div>'+
+         '<div><label class="f">銀行代碼</label><input value="'+esc(S.tmp.bank||'')+'" oninput="S.tmp.bank=this.value"></div></div>'+
+         '<label class="f">帳號</label><input value="'+esc(S.tmp.acct||'')+'" oninput="S.tmp.acct=this.value">';
+  }
+  if (S.pay==='loan') h += '<label class="f">借支單號</label><input value="'+esc(S.loan)+'" oninput="S.loan=this.value" placeholder="例 BR-2611-0001">';
+  if (S.pay==='petty') {
+    h += '<label class="f">零用金帳戶</label><select onchange="S.petty=this.value;S.lendNo=\'\';renderPay()">'+INIT.petty.map(a=>'<option '+(a.id===S.petty?'selected':'')+' value="'+esc(a.id)+'">'+esc(a.id)+'（可用 '+money(a.avail)+'）</option>').join('')+'</select>';
+    const acct = INIT.petty.find(a=>a.id===S.petty);
+    if (acct && acct.openLends.length) {
+      h += '<label class="f">報帳的借出單（自己花用不用選）</label><select onchange="S.lendNo=this.value"><option value="">不選</option>'+
+        acct.openLends.map(l=>'<option '+(l.no===S.lendNo?'selected':'')+' value="'+esc(l.no)+'">'+esc(l.no)+' '+esc(l.whoName)+' '+money(l.amt)+'</option>').join('')+'</select>';
+    }
+  }
+  $('payExtra').innerHTML = h;
+}
+function renderDoc(){
+  $('docChips').innerHTML = DOC.map(d=>'<button class="chip '+(S.doc===d.k?'on':'')+'" onclick="S.doc=\''+d.k+'\';renderDoc()">'+d.t+'</button>').join('');
+  let h = '';
+  if (S.doc==='inv3' || S.doc==='inv2') {
+    h += '<label style="display:flex;gap:8px;align-items:center;margin-top:12px"><input type="checkbox" style="width:auto" '+(S.inv.ep?'checked':'')+' onchange="S.inv.ep=this.checked"> 電子發票無紙本（載具）</label>';
+    h += '<label class="f">發票號碼</label><input value="'+esc(S.inv.no)+'" oninput="S.inv.no=this.value" placeholder="例 AB12345678">';
+  }
+  if (S.doc==='inv3') {
+    h += '<div class="row"><div><label class="f">賣方統編</label><input inputmode="numeric" value="'+esc(S.inv.tax)+'" oninput="S.inv.tax=this.value"></div>'+
+      '<div><label class="f">買方抬頭</label><select onchange="S.inv.buyer=this.value"><option value="HL" '+(S.inv.buyer==='HL'?'selected':'')+'>鑫鉝</option><option value="RH" '+(S.inv.buyer==='RH'?'selected':'')+'>榮和</option></select></div></div>';
+  }
+  if (S.doc!=='none') h += '<label class="f">賣方名稱（店家）</label><input value="'+esc(S.inv.name)+'" oninput="S.inv.name=this.value">';
+  else h += '<div class="mu" style="margin-top:8px">無憑證請在每項費用的說明寫原因</div>';
+  $('docExtra').innerHTML = h;
+  $('photoBox').classList.toggle('hide', S.doc==='none');
+}
+function renderItems(){
+  const common = INIT.items.filter(i=>i.common), rest = INIT.items.filter(i=>!i.common);
+  const opt = sel => '<option value="">請選擇</option>' +
+    (common.length ? '<optgroup label="常用">'+common.map(i=>'<option '+(i.name===sel?'selected':'')+'>'+esc(i.name)+'</option>').join('')+'</optgroup>' : '') +
+    '<optgroup label="全部">'+rest.map(i=>'<option '+(i.name===sel?'selected':'')+'>'+esc(i.name)+'</option>').join('')+'</optgroup>';
+  $('items').innerHTML = S.items.map((it,i)=>'<div class="item">'+
+    '<div class="row"><div><label class="f">費用項目'+(S.items.length>1?'（第 '+(i+1)+' 項）':'')+'</label><select onchange="S.items['+i+'].item=this.value">'+opt(it.item)+'</select></div></div>'+
+    '<div class="row"><div><label class="f">含稅金額</label><input inputmode="decimal" value="'+esc(it.amt)+'" oninput="S.items['+i+'].amt=this.value;upd()"></div>'+
+    '<div><label class="f">歸屬中心</label><select onchange="S.items['+i+'].center=this.value">'+INIT.centers.map(c=>'<option '+(c.id===it.center?'selected':'')+' value="'+esc(c.id)+'">'+esc(c.id+' '+c.name)+'</option>').join('')+'</select></div></div>'+
+    '<label class="f">說明</label><input value="'+esc(it.memo)+'" oninput="S.items['+i+'].memo=this.value">'+
+    (S.items.length>1?'<button class="btn o sm" style="margin-top:8px" onclick="S.items.splice('+i+',1);renderItems()">刪除這項</button>':'')+
+  '</div>').join('');
+  upd();
+}
+function addItem(){ S.items.push(newItem()); renderItems(); }
+function upd(){ $('sum').textContent = money(S.items.reduce((a,i)=>a+(Number(i.amt)||0),0)); }
+
+function addPhotos(inp){
+  [...inp.files].forEach(f=>{
+    const img = new Image(), rd = new FileReader();
+    rd.onload = () => { img.onload = () => {
+      const k = Math.min(1, 1280 / Math.max(img.width, img.height)), c = document.createElement('canvas');
+      c.width = Math.round(img.width*k); c.height = Math.round(img.height*k);
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+      S.photos.push(c.toDataURL('image/jpeg',0.7)); renderPhotos();
+    }; img.src = rd.result; };
+    rd.readAsDataURL(f);
+  });
+  inp.value='';
+}
+function renderPhotos(){ $('photos').innerHTML = S.photos.map((p,i)=>'<div><img src="'+p+'"><b onclick="S.photos.splice('+i+',1);renderPhotos()">✕</b></div>').join(''); }
+
+async function submitForm(){
+  const b = $('btnSubmit');
+  const q = {
+    items: S.items.map(i=>({item:i.item, amt:Number(i.amt)||0, memo:i.memo, center:i.center})),
+    pay: S.pay, docType: S.doc, photos: S.doc==='none' ? [] : S.photos,
+    vendor: S.vendor, tmp: S.tmp, loan: S.loan, petty: S.petty, lendNo: S.lendNo,
+    spendDate: $('spendDate').value, eInv: S.inv.ep, invNo: S.inv.no, sellerName: S.inv.name, sellerTax: S.inv.tax, buyer: S.inv.buyer,
+    urgent: $('urgent').checked, urgentWhy: $('urgentWhy').value,
+  };
+  b.disabled = true; b.textContent = '送出中…';
+  try{
+    const r = await api('submit', q);
+    if(!r.ok){ toast(r.msg); return; }
+    alert('已送出 ' + r.no + '\n狀態：' + r.status + (r.needPaper ? '\n\n請在發票／收據背面寫上單號，放進出納收納箱。' : '') +
+      (r.change != null ? '\n找零：' + money(r.change) : ''));
+    await refreshInit(); resetForm(); go('mine');
+  }catch(e){ toast('送出失敗：' + (e.message||e)); }
+  finally{ b.disabled = false; b.textContent = '送出'; }
+}
+async function refreshInit(){ const r = await api('init'); if (r.ok) { INIT = r; setBadge(r.pendingCount); } }
+
+/* ===== 我的申請 ===== */
+function stCls(s){ s=String(s||''); return /核准|通過|已付|已撥/.test(s)?'ok':/退回/.test(s)?'no':/待/.test(s)?'wait':''; }
+async function loadMine(){
+  $('mineList').innerHTML = '<div class="center">載入中…</div>';
+  const r = await api('mine');
+  if(!r.ok){ $('mineList').innerHTML = '<div class="center">'+esc(r.msg)+'</div>'; return; }
+  $('mineList').innerHTML = r.list.length ? r.list.map(g=>'<div class="card">'+
+    '<div class="ln"><b>'+esc(g.no)+'</b><span class="st '+stCls(g.status)+'">'+esc(g.status)+'</span></div>'+
+    '<div class="mu">'+esc(g.date)+'　'+esc(g.pay||'')+'　'+esc(g.doc||'')+(g.paper==='待繳'?'　<b style="color:#9a5b00">正本待繳</b>':'')+'</div>'+
+    g.items.map(i=>'<div class="ln"><span>'+esc(i.item)+(i.memo?'｜'+esc(i.memo):'')+'</span><span>'+money(i.amt)+'</span></div>').join('')+
+    '<div class="ln"><b>合計</b><b>'+money(g.total)+'</b></div>'+
+    (g.rejectWhy?'<div class="err">退回原因：'+esc(g.rejectWhy)+'</div>':'')+
+  '</div>').join('') : '<div class="center">近 60 天沒有申請</div>';
+}
+
+/* ===== 待我簽核 ===== */
+async function loadAppr(){
+  $('apprList').innerHTML = '<div class="center">載入中…</div>';
+  const r = await api('pending');
+  if(!r.ok){ $('apprList').innerHTML = '<div class="center">'+esc(r.msg)+'</div>'; return; }
+  PENDING = r.list; setBadge(PENDING.length);
+  $('apprList').innerHTML = PENDING.length ? PENDING.map((g,k)=>{
+    const lines = g.items.map(i=>{
+      const left = esc(i.item) + (i.qty ? '　' + i.qty + esc(i.unit||'') : '') + (i.memo ? '｜' + esc(i.memo) : '');
+      return '<div class="ln"><span>'+left+'</span><span>'+(i.amt ? money(i.amt) : '<span class="mu">未估價</span>')+'</span></div>';
+    }).join('');
+    const sub = g.type==='PO' ? '廠商：'+esc(g.vendor||'') : g.type==='EXP' ? esc(g.pay||'')+'　'+esc(g.doc||'') : '需求中心：'+esc(g.center||'');
+    return '<div class="card">'+
+      '<div class="ln"><span><span class="tag">'+esc(g.title)+'</span>'+(g.urgent?'<span class="tag ur">急件</span>':'')+'<b>'+esc(g.no)+'</b></span><span class="mu">'+esc(g.date||'')+'</span></div>'+
+      '<div class="mu">'+esc(g.applicantName||'')+'　'+sub+'</div>'+
+      '<div style="margin-top:8px">'+lines+'</div>'+
+      '<div class="ln"><b>'+(g.type==='PO'?'未稅合計':'合計')+'</b><b>'+money(g.total)+'</b></div>'+
+      '<div class="row" style="margin-top:10px"><button class="btn r" onclick="reject('+k+')">退回</button><button class="btn" onclick="approve('+k+')">核准</button></div>'+
+    '</div>';
+  }).join('') : '<div class="center">目前沒有待簽核的單 👍</div>';
+}
+async function approve(k){
+  const g = PENDING[k];
+  if (!confirm('核准 ' + g.title + ' ' + g.no + '（' + money(g.total) + '）？')) return;
+  const r = await api('approve', {type: g.type, no: g.no, ok: true});
+  toast(r.ok ? '已核准 ' + g.no : r.msg); loadAppr();
+}
+async function reject(k){
+  const g = PENDING[k];
+  const reason = prompt('退回 ' + g.no + ' 的原因：');
+  if (reason === null) return;
+  if (!reason.trim()) { toast('請寫退回原因'); return; }
+  const r = await api('approve', {type: g.type, no: g.no, ok: false, reason: reason.trim()});
+  toast(r.ok ? '已退回 ' + g.no : r.msg); loadAppr();
+}
+
+/* ===== 零用金 ===== */
+async function renderPetty(){
+  const box = $('pettyBox');
+  const cards = INIT.petty.map(a=>'<div class="card"><h3>'+esc(a.id)+'</h3>'+
+    '<div class="ln"><span>額度</span><span>'+money(a.limit)+'</span></div>'+
+    '<div class="ln"><span>借出未還</span><span>'+money(a.lent)+'</span></div>'+
+    '<div class="ln"><span>已報帳未撥補</span><span>'+money(a.unrep)+'</span></div>'+
+    '<div class="ln"><b>可用現金</b><b>'+money(a.avail)+'</b></div>'+
+    (a.openLends.length ? '<div class="mu" style="margin-top:8px">未報帳的借出</div>' + a.openLends.map(l=>
+      '<div class="ln"><span>'+esc(l.no)+' '+esc(l.whoName)+'（'+l.days+' 天）</span><span>'+money(l.amt)+' <button class="btn o sm" onclick="reportLend(\''+esc(a.id)+'\',\''+esc(l.no)+'\')">報帳</button></span></div>').join('') : '')+
+    '<div class="row" style="margin-top:12px"><button class="btn o" onclick="lendForm(\''+esc(a.id)+'\')">借出現金</button><button class="btn o" onclick="refillForm()">申請撥補</button></div>'+
+    '<div id="lend_'+esc(a.id)+'"></div></div>').join('');
+  box.innerHTML = cards + '<div id="refillBox"></div>';
+}
+function lendForm(acct){
+  $('lend_'+acct).innerHTML = '<label class="f">借給誰</label><select id="lWho"><option value="">請選擇</option>'+
+    INIT.emps.map(e=>'<option value="'+esc(e.id)+'">'+esc(e.id+' '+e.name)+'</option>').join('')+'</select>'+
+    '<label class="f">金額</label><input id="lAmt" inputmode="numeric"><label class="f">用途</label><input id="lMemo" placeholder="例：加油、買五金">'+
+    '<button class="btn" style="margin-top:12px" id="btnLend">確認借出</button>';
+  $('btnLend').onclick = async () => {
+    const b=$('btnLend'); b.disabled=true;
+    try{ const r = await api('lend',{acct, who:$('lWho').value, amt:Number($('lAmt').value), memo:$('lMemo').value});
+      if(!r.ok){ toast(r.msg); return; } toast('已借出：'+r.no); await refreshInit(); renderPetty(); }
+    finally{ b.disabled=false; }
+  };
+}
+function reportLend(acct,no){ resetForm(); S.pay='petty'; S.petty=acct; S.lendNo=no; renderPay(); go('form'); }
+async function refillForm(){
+  const box=$('refillBox'); box.innerHTML='<div class="center">載入中…</div>';
+  const r = await api('refillList');
+  if(!r.ok){ box.innerHTML='<div class="center">'+esc(r.msg)+'</div>'; return; }
+  if(!r.list.length){ box.innerHTML='<div class="card mu">沒有可撥補的費用'+(r.waiting?'（另有 '+r.waiting+' 筆待簽核）':'')+'</div>'; return; }
+  box.innerHTML='<div class="card"><h3>勾選要撥補的費用</h3>'+r.list.map(g=>'<label class="ln" style="align-items:center"><span><input type="checkbox" class="rf" value="'+esc(g.no)+'" style="width:auto" checked> '+esc(g.no)+' '+esc(g.items.map(i=>i.item).join('、'))+'</span><span>'+money(g.total)+'</span></label>').join('')+
+    '<div class="mu" style="margin-top:8px">送出後請把這些收據正本交給出納；週一 12:00 前收到正本，當週三撥補。</div>'+
+    '<button class="btn" style="margin-top:12px" id="btnRefill">申請撥補</button></div>';
+  $('btnRefill').onclick = async () => {
+    const nos=[...document.querySelectorAll('.rf:checked')].map(x=>x.value);
+    if(!nos.length){ toast('請至少勾一筆'); return; }
+    const res = await api('refill',{nos});
+    if(!res.ok){ toast(res.msg); return; }
+    alert('已建立撥補單：\n' + res.list.map(x=>x.no+'　'+money(x.total)).join('\n'));
+    await refreshInit(); renderPetty();
+  };
+}
+
+boot();
+</script>
+</body>
+</html>

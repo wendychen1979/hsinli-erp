@@ -388,8 +388,8 @@ function prRender(){
         : '<input id="prQ'+i+'" value="'+esc(l.text)+'" oninput="prSearch('+i+',this.value)" placeholder="打字搜尋，例：收縮膜、鋸片、螺絲" autocomplete="off"><div class="res" id="prR'+i+'"></div>');
     return '<div class="item">'+head+pick+
       '<div class="row"><div><label class="f">數量'+(it&&it.unit?'（'+esc(it.unit)+'）':'')+'</label><input inputmode="decimal" value="'+esc(l.qty)+'" oninput="PR.lines['+i+'].qty=this.value;prAmt('+i+')"></div>'+
-      '<div><label class="f">預估單價（未稅，可不填）</label><input inputmode="decimal" value="'+esc(l.price)+'" oninput="PR.lines['+i+'].price=this.value;prAmt('+i+')"></div></div>'+
-      '<div class="mu" id="prA'+i+'" style="margin-top:4px">'+prAmtTxt(l)+'</div>'+
+      (l.sel==='__new' ? '<div><label class="f">預估單價（未稅，可不填）</label><input inputmode="decimal" value="'+esc(l.price)+'" oninput="PR.lines['+i+'].price=this.value;prAmt('+i+')"></div>' : '')+'</div>'+
+      (l.sel==='__new' ? '<div class="mu" id="prA'+i+'" style="margin-top:4px">'+prAmtTxt(l)+'</div>' : '')+
       '<label class="f">需要日</label><div class="nd">'+ND.map(o=>'<b class="'+(l.need===o[0]?'on':'')+'" onclick="prNeed('+i+',\''+o[0]+'\')">'+o[0]+'</b>').join('')+'</div>'+
       '<label class="f">用途／說明</label><input value="'+esc(l.memo)+'" oninput="PR.lines['+i+'].memo=this.value">'+
       (PR.lines.length>1?'<button class="btn o sm" style="margin-top:8px" onclick="PR.lines.splice('+i+',1);prRender()">刪除這項</button>':'')+
@@ -430,7 +430,7 @@ async function prSubmit(){
   if (PR.lines.some(l=>!l.sel && String(l.text).trim())) { toast('有品項還沒選定，請點清單裡的品項或「新品項」'); return; }
   const lines = PR.lines.filter(l=>l.sel).map(l=>{
     const it = prItem(l.sel);
-    return it ? {item: it.no, qty: Number(l.qty)||0, price: Number(l.price)||0, needDate: ndDate(l.need), memo: l.memo}
+    return it ? {item: it.no, qty: Number(l.qty)||0, needDate: ndDate(l.need), memo: l.memo}
               : {name: String(l.text).trim(), qty: Number(l.qty)||0, price: Number(l.price)||0, needDate: ndDate(l.need), memo: l.memo};
   });
   if (!lines.length) { toast('請至少填一項'); return; }

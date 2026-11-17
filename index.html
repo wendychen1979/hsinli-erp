@@ -55,6 +55,7 @@ textarea{min-height:70px}
 .hit{padding:10px 12px;border-top:1px solid #eef0f3;background:#fff}
 .hit:active{background:#e8f9ef}
 .hit.new{color:#047a35;font-weight:600}
+.nd{display:flex;gap:6px;flex-wrap:wrap}.nd b{flex:1;min-width:64px;text-align:center;padding:9px 4px;border:1px solid var(--bd);border-radius:8px;background:#fff;font-weight:400;font-size:14px;cursor:pointer}.nd b.on{border-color:var(--g);background:#f2fbf5;color:var(--gd);font-weight:600}
 .pick{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--g);border-radius:8px;background:#f2fbf5}
 </style>
 </head>
@@ -366,7 +367,14 @@ function prReset(){
   $('prUrgent').checked = false;
   renderPrWh(); prRender(); prRenderPhotos();
 }
-function prNew(){ return {sel:'', text:'', qty:'', needDate:'', memo:''}; }
+function prNew(){ return {sel:'', text:'', qty:'', price:'', need:'不急', memo:''}; }
+function prAmtTxt(l){ const q=Number(l.qty)||0, p=Number(l.price)||0; return (q&&p)?'預估金額：'+money(Math.round(q*p)):''; }
+function prAmt(i){ const e=$('prA'+i); if(e) e.textContent=prAmtTxt(PR.lines[i]); }
+const ND = [['今天',0],['3 天內',3],['1 週內',7],['不急',null]];
+function prNeed(i,k){ PR.lines[i].need = k; prRender(); }
+function ndDate(k){ const o = ND.find(x=>x[0]===k); if(!o || o[1]===null) return '';
+  const d = new Date(); d.setDate(d.getDate()+o[1]);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function renderPrWh(){ $('prWhBox').classList.toggle('hide', $('prCenter').value!=='C1'); }
 function prItem(no){ return (PRITEMS||[]).find(i=>i.no===no) || null; }
 function prRender(){
@@ -379,8 +387,10 @@ function prRender(){
         ? '<div class="pick"><div><b>'+esc(l.text)+'</b><div class="mu">新品項（清單沒有，建議拍照）</div></div><button class="btn o sm" onclick="prClear('+i+')">更換</button></div>'
         : '<input id="prQ'+i+'" value="'+esc(l.text)+'" oninput="prSearch('+i+',this.value)" placeholder="打字搜尋，例：收縮膜、鋸片、螺絲" autocomplete="off"><div class="res" id="prR'+i+'"></div>');
     return '<div class="item">'+head+pick+
-      '<div class="row"><div><label class="f">數量'+(it&&it.unit?'（'+esc(it.unit)+'）':'')+'</label><input inputmode="decimal" value="'+esc(l.qty)+'" oninput="PR.lines['+i+'].qty=this.value"></div>'+
-      '<div><label class="f">需要日</label><input type="date" value="'+esc(l.needDate)+'" oninput="PR.lines['+i+'].needDate=this.value"></div></div>'+
+      '<div class="row"><div><label class="f">數量'+(it&&it.unit?'（'+esc(it.unit)+'）':'')+'</label><input inputmode="decimal" value="'+esc(l.qty)+'" oninput="PR.lines['+i+'].qty=this.value;prAmt('+i+')"></div>'+
+      '<div><label class="f">預估單價（未稅，可不填）</label><input inputmode="decimal" value="'+esc(l.price)+'" oninput="PR.lines['+i+'].price=this.value;prAmt('+i+')"></div></div>'+
+      '<div class="mu" id="prA'+i+'" style="margin-top:4px">'+prAmtTxt(l)+'</div>'+
+      '<label class="f">需要日</label><div class="nd">'+ND.map(o=>'<b class="'+(l.need===o[0]?'on':'')+'" onclick="prNeed('+i+',\''+o[0]+'\')">'+o[0]+'</b>').join('')+'</div>'+
       '<label class="f">用途／說明</label><input value="'+esc(l.memo)+'" oninput="PR.lines['+i+'].memo=this.value">'+
       (PR.lines.length>1?'<button class="btn o sm" style="margin-top:8px" onclick="PR.lines.splice('+i+',1);prRender()">刪除這項</button>':'')+
     '</div>';
@@ -420,8 +430,8 @@ async function prSubmit(){
   if (PR.lines.some(l=>!l.sel && String(l.text).trim())) { toast('有品項還沒選定，請點清單裡的品項或「新品項」'); return; }
   const lines = PR.lines.filter(l=>l.sel).map(l=>{
     const it = prItem(l.sel);
-    return it ? {item: it.no, qty: Number(l.qty)||0, needDate: l.needDate, memo: l.memo}
-              : {name: String(l.text).trim(), qty: Number(l.qty)||0, needDate: l.needDate, memo: l.memo};
+    return it ? {item: it.no, qty: Number(l.qty)||0, price: Number(l.price)||0, needDate: ndDate(l.need), memo: l.memo}
+              : {name: String(l.text).trim(), qty: Number(l.qty)||0, price: Number(l.price)||0, needDate: ndDate(l.need), memo: l.memo};
   });
   if (!lines.length) { toast('請至少填一項'); return; }
   if (lines.some(l=>!(l.qty>0))) { toast('每一項都要填數量'); return; }
